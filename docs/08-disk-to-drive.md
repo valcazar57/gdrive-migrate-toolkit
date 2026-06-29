@@ -51,7 +51,7 @@ rclone copy "accountA:Some Folder" "D:/MIRROR/Some Folder" \
 | Disk → Drive (upload) | `rclone copy` (`--drive-import-formats` optional) | created as Office unless you import-convert |
 | Drive → Disk (download/mirror) | `rclone copy --drive-export-formats` | **exported** to Office |
 | Drive → Drive same account (reorg) | `rclone move` | **preserved** (server-side reparent) |
-| Drive → Drive cross account | `rclone copy --drive-server-side-across-configs` | **preserved** (owned files only) |
+| Drive → Drive cross account | `rclone copy --server-side-across-configs` | **preserved** (owned files only) |
 
 So: a native survives as a true native **only** when it stays inside Drive. Once it
 hits the local filesystem it's an Office export. Plan accordingly.

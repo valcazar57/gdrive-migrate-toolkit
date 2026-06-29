@@ -2,8 +2,8 @@
 """Offline smoke tests for gdrive-migrate-toolkit. No network, no real rclone.
 
 Builds an OS-appropriate launcher so the scripts call tests/fake_rclone.py instead
-of the real rclone, then asserts the scripts produce the right command lines, logs
-and exit codes in dry-run and apply modes.
+of the real rclone, then asserts the scripts produce the right command lines, logs,
+error handling and exit codes in dry-run and apply modes.
 """
 import os
 import subprocess
@@ -39,15 +39,17 @@ class Smoke(unittest.TestCase):
         self.d = Path(self.tmp.name)
         self.launcher = make_launcher(self.d)
         self.log = self.d / "fake.log"
-        self.table = self.d / "move_table.csv"
-        self.table.write_text(
-            "group;source;dest;mirror\n"
-            "Sales;00 - INBOX/Sales;Sales and Marketing;D:/MIRROR/Sales\n",
-            encoding="utf-8")
+        self.table = self.write_table(
+            "Sales;00 - INBOX/Sales;Sales and Marketing;D:/MIRROR/Sales\n")
         self.env = dict(os.environ, RCLONE=str(self.launcher), GMT_FAKE_LOG=str(self.log))
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def write_table(self, body, name="move_table.csv"):
+        p = self.d / name
+        p.write_text("group;source;dest;mirror\n" + body, encoding="utf-8")
+        return p
 
     def run_script(self, name, *args):
         cmd = [sys.executable, str(SCRIPTS / name), *args]
@@ -61,18 +63,34 @@ class Smoke(unittest.TestCase):
         r = self.run_script("reorg_move.py", "--table", str(self.table),
                             "--src-remote", "accountA:", "--dst-remote", "accountA:", "--apply")
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("-> ok", r.stdout)
+        self.assertIn("source_left=0", r.stdout)            # verification ran
         log = self.log.read_text(encoding="utf-8")
-        self.assertRegex(log, r"(?m)^move ")                       # reorg uses move
-        self.assertNotIn("--drive-server-side-across-configs", log)  # intra-account
+        self.assertRegex(log, r"(?m)^move ")                # reorg uses move
+        self.assertNotIn("--server-side-across-configs", log)  # intra-account: no cross-config
+
+    def test_reorg_skips_missing_source(self):
+        table = self.write_table("Gone;ERRNOTFOUND/x;Dest;\n", "missing.csv")
+        r = self.run_script("reorg_move.py", "--table", str(table),
+                            "--src-remote", "accountA:", "--dst-remote", "accountA:", "--apply")
+        self.assertEqual(r.returncode, 0, r.stderr)          # missing source is a clean skip
+        self.assertIn("SKIP", r.stdout)
+        self.assertNotIn("ERROR", r.stdout)
+
+    def test_reorg_errors_on_unreadable_source(self):
+        table = self.write_table("Bad;ERRFAIL/x;Dest;\n", "bad.csv")
+        r = self.run_script("reorg_move.py", "--table", str(table),
+                            "--src-remote", "accountA:", "--dst-remote", "accountA:", "--apply")
+        self.assertEqual(r.returncode, 1)                    # access error must NOT be a silent skip
+        self.assertIn("ERROR", r.stdout)
 
     def test_evacuate_two_passes(self):
         r = self.run_script("evacuate.py", "--table", str(self.table),
                             "--src-remote", "accountA:", "--dst-remote", "accountB:", "--apply")
         self.assertEqual(r.returncode, 0, r.stderr)
         log = self.log.read_text(encoding="utf-8")
-        self.assertIn("--drive-server-side-across-configs", log)  # pass 1
-        self.assertIn("--ignore-existing", log)                   # pass 2
+        self.assertIn("--server-side-across-configs", log)     # pass 1 (modern global flag)
+        self.assertNotIn("--drive-server-side-across-configs", log)  # not the deprecated one
+        self.assertIn("--ignore-existing", log)                # pass 2
 
     def test_detect_natives(self):
         r = self.run_script("detect_natives.py", "--path", "accountA:Block")
@@ -84,6 +102,13 @@ class Smoke(unittest.TestCase):
                             "--src-remote", "accountA:", "--dst-remote", "accountB:")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("OK", r.stdout)
+
+    def test_verify_counts_flags_error(self):
+        table = self.write_table("Bad;ERRFAIL/x;ERRFAIL/y;\n", "verr.csv")
+        r = self.run_script("verify_counts.py", "--table", str(table),
+                            "--src-remote", "accountA:", "--dst-remote", "accountB:")
+        self.assertEqual(r.returncode, 1)                    # access error -> non-zero
+        self.assertIn("error", r.stdout)
 
     def test_mirror_exports_natives_flag(self):
         r = self.run_script("mirror_account.py", "--remote", "accountA:",

@@ -8,7 +8,7 @@ server-side copy can't move what you don't own.
 ## The two-pass method (per block)
 
 ```
-Pass 1 (server-side):  rclone copy SRC DST --drive-server-side-across-configs
+Pass 1 (server-side):  rclone copy SRC DST --server-side-across-configs
     -> copies OWNED files cloud->cloud, FAST, preserves Google-native (Size=-1).
     -> NON-owned items 404 here. That's expected, not a zombie.
 

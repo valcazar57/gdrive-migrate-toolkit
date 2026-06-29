@@ -5,7 +5,7 @@ Much of "My Drive" is usually NOT owned by you (shared / uploaded by others).
 The server-side copy (`files.copy`) 404s on non-owned items, but the direct
 download works. Hence the TWO-PASS METHOD per block:
 
-  Pass 1 (server-side): rclone copy SOURCE DEST --drive-server-side-across-configs
+  Pass 1 (server-side): rclone copy SOURCE DEST --server-side-across-configs
       -> copies OWNED files cloud->cloud and PRESERVES Google-native (Size=-1).
   Pass 2 (relay):       rclone copy LOCAL_MIRROR DEST --ignore-existing
       -> uploads NON-owned files from the local mirror (mirror_account.py),
@@ -74,11 +74,11 @@ def main():
 
         # ---- Pass 1: server-side (owned, preserves natives) ----
         if a.phase in ("1", "both"):
-            n0 = c.rclone_size(rclone, src, timeout=a.timeout)
+            n0 = c.rclone_size_or_none(rclone, src, timeout=a.timeout)
             n0c = n0["count"] if n0 else 0
             print(f"  P1 server-side: {src} -> {dst}  (source {n0c} obj)")
-            rc, err = do_copy(rclone, src, dst, ["--drive-server-side-across-configs"], a.timeout, a.apply)
-            nd = c.rclone_size(rclone, dst, timeout=a.timeout) if a.apply else None
+            rc, err = do_copy(rclone, src, dst, ["--server-side-across-configs"], a.timeout, a.apply)
+            nd = c.rclone_size_or_none(rclone, dst, timeout=a.timeout) if a.apply else None
             ndc = nd["count"] if nd else ""
             status = "dry-run" if not a.apply else ("ok" if rc == 0 else f"REVIEW(rc={rc},404=non-owned)")
             if err.strip() and a.apply:
@@ -93,7 +93,7 @@ def main():
             else:
                 print(f"  P2 relay: {mirror} -> {dst}  (--ignore-existing)")
                 rc, err = do_copy(rclone, mirror, dst, ["--ignore-existing"], a.timeout, a.apply)
-                nd = c.rclone_size(rclone, dst, timeout=a.timeout) if a.apply else None
+                nd = c.rclone_size_or_none(rclone, dst, timeout=a.timeout) if a.apply else None
                 ndc = nd["count"] if nd else ""
                 status = "dry-run" if not a.apply else ("ok" if rc == 0 else f"ERROR(rc={rc})")
                 if err.strip() and a.apply:

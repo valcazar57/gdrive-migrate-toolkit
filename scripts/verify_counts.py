@@ -38,14 +38,25 @@ HEADER = ["group", "source", "dest", "n_src", "n_dst", "delta_n", "bytes_src", "
 
 
 def check_pair(rclone, group, src, dst, timeout):
-    s = c.rclone_size(rclone, src, timeout=timeout)
-    d = c.rclone_size(rclone, dst, timeout=timeout)
-    ns, nd = (s["count"] if s else None), (d["count"] if d else None)
-    bs, bd = (s["bytes"] if s else None), (d["bytes"] if d else None)
-    if ns is None:
-        status, delta = "source_unreachable", ""
-    elif nd is None:
-        status, delta = "dest_unreachable", ""
+    def measure(path):
+        try:
+            return c.rclone_size(rclone, path, timeout=timeout)  # dict, or None if not found
+        except c.RcloneError:
+            return "error"
+    s, d = measure(src), measure(dst)
+    ns = s["count"] if isinstance(s, dict) else None
+    nd = d["count"] if isinstance(d, dict) else None
+    bs = s["bytes"] if isinstance(s, dict) else None
+    bd = d["bytes"] if isinstance(d, dict) else None
+    delta = ""
+    if s == "error":
+        status = "source_error"
+    elif d == "error":
+        status = "dest_error"
+    elif s is None:
+        status = "source_not_found"
+    elif d is None:
+        status = "dest_not_found"
     else:
         delta = nd - ns
         if delta == 0:
@@ -81,7 +92,7 @@ def main():
             c.append_csv(a.out, HEADER, row)
         print(f"Output -> {a.out}")
 
-    bad = [r for r in rows if str(r[-1]).startswith("REVIEW") or "unreachable" in str(r[-1])]
+    bad = [r for r in rows if any(k in str(r[-1]) for k in ("REVIEW", "error", "not_found"))]
     print(f"\n{len(rows) - len(bad)}/{len(rows)} OK." + (f" {len(bad)} to REVIEW." if bad else ""))
     sys.exit(1 if bad else 0)
 

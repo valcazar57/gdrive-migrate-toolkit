@@ -49,13 +49,18 @@ def main():
     a = parse_args()
     rclone = c.find_rclone(a.rclone)
     c.banner(a.apply)
+    if a.server_side_across_configs:
+        print("WARNING: cross-account `move` copies then DELETES each source file as it\n"
+              "         goes, before the final verification. For cross-account transfers the\n"
+              "         safer copy -> verify -> delete path is evacuate.py. Use this only for\n"
+              "         OWNED files you deliberately want to relocate server-side.\n")
     log = a.log or f"changes_reorg_{c.today()}.csv"
 
     rows = c.read_table(a.table)
     if not rows:
         sys.exit("Table has no usable rows (columns group;source;dest?).")
 
-    extra = ["--drive-server-side-across-configs"] if a.server_side_across_configs else []
+    extra = ["--server-side-across-configs"] if a.server_side_across_configs else []
     ok = skipped = failed = 0
 
     for i, r in enumerate(rows, 1):
@@ -67,17 +72,29 @@ def main():
             skipped += 1
             continue
 
-        n_src = c.rclone_size(rclone, src, timeout=a.timeout)
+        try:
+            n_src = c.rclone_size(rclone, src, timeout=a.timeout)
+        except c.RcloneError as e:
+            print(f"[{i}/{len(rows)}] {group}: cannot read source -> ERROR (not skipped)")
+            print("            ", e)
+            c.append_csv(log, HEADER, [c.now_iso(), group, src, dst, "", "", "",
+                                       "ERROR(source_unreadable)", "apply" if a.apply else "dry-run"])
+            failed += 1
+            continue
         if n_src is None:
-            # Idempotency: source no longer exists (already moved) -> clean skip.
-            print(f"[{i}/{len(rows)}] {group}: source missing/empty -> SKIP (idempotent)")
-            c.append_csv(log, HEADER, [c.now_iso(), group, src, dst, "", "", "", "skip_empty_source",
-                                       "apply" if a.apply else "dry-run"])
+            # Source truly does not exist (already moved) -> clean idempotent skip.
+            print(f"[{i}/{len(rows)}] {group}: source not found (already moved?) -> SKIP")
+            c.append_csv(log, HEADER, [c.now_iso(), group, src, dst, "", "", "",
+                                       "skip_no_source", "apply" if a.apply else "dry-run"])
             skipped += 1
             continue
         n_src_count = n_src["count"]
         print(f"[{i}/{len(rows)}] {group}: source {n_src_count} obj / {c.human(n_src['bytes'])}")
         print(f"            {src}  ->  {dst}")
+        n_dst_before = 0
+        if a.apply:
+            before = c.rclone_size_or_none(rclone, dst, timeout=a.timeout)
+            n_dst_before = before["count"] if before else 0
 
         args = ["move", src, dst] + c.STD_FLAGS + c.exclude_args(c.DEFAULT_EXCLUDES) + extra
         if not a.apply:
@@ -97,23 +114,40 @@ def main():
             continue
 
         # Post-move verification (real run).
-        n_dst = c.rclone_size(rclone, dst, timeout=a.timeout)
-        n_left = c.rclone_count_files(rclone, src, timeout=a.timeout)
-        dst_count = n_dst["count"] if n_dst else 0
-        status = "ok" if (n_left == 0) else f"REVIEW(source={n_left})"
-        if rc not in (0, -1) and n_left != 0:
+        try:
+            n_dst = c.rclone_size(rclone, dst, timeout=a.timeout)
+            n_left = c.rclone_count_files(rclone, src, timeout=a.timeout)
+        except c.RcloneError as e:
+            print("            verify failed:", e)
+            c.append_csv(log, HEADER, [c.now_iso(), group, src, dst, n_src_count, "", "",
+                                       "REVIEW(verify_error)", "apply"])
+            failed += 1
+            continue
+        dst_after = n_dst["count"] if n_dst else 0
+        n_left = 0 if n_left is None else n_left
+        added = dst_after - n_dst_before
+        if rc not in (0, -1):
             status = f"ERROR(rc={rc})"
             failed += 1
+        elif n_left != 0:
+            status = f"REVIEW(source_left={n_left})"
+            failed += 1
+        elif added != n_src_count:
+            # Benign causes: name collisions merged, duplicate names, dedup at dest.
+            status = f"REVIEW(added={added}!=src={n_src_count})"
+            ok += 1
         else:
+            status = "ok"
             ok += 1
         if err.strip():
             print("            stderr:", err.strip().splitlines()[-1])
-        print(f"            dest={dst_count}  source_left={n_left}  -> {status}")
-        c.append_csv(log, HEADER, [c.now_iso(), group, src, dst, n_src_count, dst_count, n_left, status, "apply"])
+        print(f"            added={added}  dest_total={dst_after}  source_left={n_left}  -> {status}")
+        c.append_csv(log, HEADER, [c.now_iso(), group, src, dst, n_src_count, added, n_left, status, "apply"])
 
     print(f"\nSummary: ok={ok} skipped={skipped} failed={failed}. Log -> {log}")
     if not a.apply:
         print("This was DRY-RUN. Review the plan and re-run with --apply once approved.")
+    sys.exit(1 if failed else 0)
 
 
 if __name__ == "__main__":

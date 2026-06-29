@@ -83,32 +83,56 @@ def run_rclone(rclone: str, args, *, timeout=None, capture_to_file=False):
     return p.returncode, (p.stdout or ""), (p.stderr or "")
 
 
-def rclone_size(rclone: str, path: str, *, excludes=DEFAULT_EXCLUDES, timeout=1800):
-    """Return {'count': int, 'bytes': int} or None if missing / error.
+class RcloneError(RuntimeError):
+    """rclone failed for a reason other than 'path does not exist'."""
 
-    'count' includes Google-native files (they count as an object even at 0 bytes).
+
+def _not_found(rc, err):
+    """True when rclone failed only because the path does not exist."""
+    return rc == 3 or "directory not found" in (err or "").lower()
+
+
+def rclone_size(rclone: str, path: str, *, excludes=DEFAULT_EXCLUDES, timeout=1800):
+    """Return {'count': int, 'bytes': int}, or None if the path does not exist.
+
+    Raises RcloneError on a real failure (timeout, auth, 429, network, bad JSON)
+    so callers never mistake an access error for an empty / already-moved folder.
+    'count' includes Google-native files (they count as an object at 0 bytes).
     """
     args = ["size", "--json", path] + exclude_args(excludes)
-    rc, out, _ = run_rclone(rclone, args, timeout=timeout, capture_to_file=True)
+    rc, out, err = run_rclone(rclone, args, timeout=timeout, capture_to_file=True)
     if rc != 0:
-        return None
+        if _not_found(rc, err):
+            return None
+        raise RcloneError(f"rclone size failed (rc={rc}) for {path}: {err.strip()[-300:]}")
     try:
         d = json.loads(out.strip() or "{}")
     except json.JSONDecodeError:
-        return None
+        raise RcloneError(f"rclone size returned invalid JSON for {path}")
     return {"count": int(d.get("count", 0)), "bytes": int(d.get("bytes", 0))}
 
 
 def rclone_count_files(rclone: str, path: str, *, excludes=DEFAULT_EXCLUDES, timeout=1800):
-    """Count real files with `lsf -R --files-only`. None if missing.
+    """Count real files with `lsf -R --files-only`.
 
-    Useful for the 'everything moved' check = source has 0 files after a move.
+    Returns the count, or None if the path does not exist. Raises RcloneError on
+    a real failure. Used for the 'everything moved' check (source = 0 after move).
     """
     args = ["lsf", "-R", "--files-only", path] + exclude_args(excludes)
-    rc, out, _ = run_rclone(rclone, args, timeout=timeout, capture_to_file=True)
+    rc, out, err = run_rclone(rclone, args, timeout=timeout, capture_to_file=True)
     if rc != 0:
-        return None
+        if _not_found(rc, err):
+            return None
+        raise RcloneError(f"rclone lsf failed (rc={rc}) for {path}: {err.strip()[-300:]}")
     return sum(1 for line in out.splitlines() if line.strip())
+
+
+def rclone_size_or_none(rclone, path, **kw):
+    """rclone_size for display-only callers: returns None on any error too."""
+    try:
+        return rclone_size(rclone, path, **kw)
+    except RcloneError:
+        return None
 
 
 def append_csv(path, header, row):

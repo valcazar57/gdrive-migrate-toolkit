@@ -42,7 +42,7 @@ def main():
     src = a.remote if ":" in a.remote.split("/", 1)[0] else a.remote + ":"
     timeout = a.timeout or None
 
-    before = c.rclone_size(rclone, src, timeout=timeout)
+    before = c.rclone_size_or_none(rclone, src, timeout=timeout)
     if before is None:
         print(f"WARNING: could not measure {src} (wrong remote? huge folder that hangs?).")
     else:
@@ -63,7 +63,10 @@ def main():
         print("stderr:", err.strip()[-2000:])
 
     if a.apply:
-        after = c.rclone_count_files(rclone, a.dest, timeout=timeout)
+        try:
+            after = c.rclone_count_files(rclone, a.dest, timeout=timeout)
+        except c.RcloneError:
+            after = None
         print(f"\nLocal {a.dest}: {after} files. (Note: exported natives count as 1 "
               "Office file; the count may not exactly match the source due to "
               "dangling shortcuts / duplicate names - see docs/GOTCHAS.md.)")

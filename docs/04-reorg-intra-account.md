@@ -11,7 +11,7 @@ metadata. It only changes the file's "parent":
 - **Instant** — no download, no re-upload.
 - **Preserves Google-native** (`Size=-1`; the Doc/Sheet stays native and editable,
   it is NOT exported). This is the opposite of moving *between* accounts.
-- Do **not** use `--drive-server-side-across-configs` here (that's for
+- Do **not** use `--server-side-across-configs` here (that's for
   cross-account; intra-account doesn't need it).
 
 ## Recipe

@@ -46,7 +46,7 @@ Use the mounted letter only for casual, interactive single-file work.
 |---|---|
 | Inventory / measure | rclone (`lsf`, `size --json`) |
 | Move/reorg within an account | rclone (`move`, server-side) |
-| Copy between accounts | rclone (`--drive-server-side-across-configs`) |
+| Copy between accounts | rclone (`--server-side-across-configs`) |
 | Mirror to disk / export natives | rclone (`copy --drive-export-formats`) |
 | Casual open/edit a single file | Drive for Desktop (mounted letter) |
 

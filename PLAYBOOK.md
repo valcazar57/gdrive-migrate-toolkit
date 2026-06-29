@@ -122,14 +122,14 @@ a CSV table of `(group, source, dest)`. The proof of "all moved" is
 
 **Cross-account evacuation at scale** (`scripts/evacuate.py`): empty a whole
 account by redistributing to others + disk. Two passes per block:
-1. `rclone copy SRC DST --drive-server-side-across-configs` — copies **owned**
+1. `rclone copy SRC DST --server-side-across-configs` — copies **owned**
    files cloud→cloud, preserves natives. Non-owned items 404 here (that's expected,
    not a zombie).
 2. `rclone copy LOCAL_MIRROR DST --ignore-existing` — uploads the **non-owned**
    files from the local mirror, without overwriting pass 1.
 
 **Single folder to another account preserving natives:**
-`rclone copy "A:Folder" "B:Folder" --drive-server-side-across-configs` (no
+`rclone copy "A:Folder" "B:Folder" --server-side-across-configs` (no
 `--drive-export-formats`, which would export and break the native). Owned files only.
 
 ### Final phase — Permanent deletion (only with absolute confirmation)

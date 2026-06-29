@@ -10,7 +10,7 @@ The whole method hinges on one specific capability that **almost no Drive client
 has**:
 
 - **Server-side copy/move *between accounts* that preserves Google-native files**
-  (`rclone copy --drive-server-side-across-configs`), and
+  (`rclone copy --server-side-across-configs`), and
 - **server-side *reparent* within one account** (`rclone move`), which is instant
   and also keeps natives editable.
 

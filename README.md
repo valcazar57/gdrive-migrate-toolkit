@@ -51,7 +51,7 @@ The full method is in [**PLAYBOOK.md**](PLAYBOOK.md). Every hard-won trap is in
 ## Why not an existing tool?
 
 The engine here is **rclone** — the one piece that can copy/move *between accounts*
-while preserving Google-native files (`--drive-server-side-across-configs`) and
+while preserving Google-native files (`--server-side-across-configs`) and
 reparent server-side *within* an account (`rclone move`). Almost no other Drive
 client does that. GAM helps only for ownership transfer **within a single Workspace
 domain**; everything else (single-account clients, FUSE mounts, public-link
@@ -92,8 +92,11 @@ applies to macOS/Linux too — PRs for those environments are welcome.
 
 - **Copy, never move *from* Drive.** A bare move out of a synced folder deletes the
   cloud copy. This toolkit always copies, verifies, then deletes to trash.
-- **Google-native survive as natives only inside Drive.** Going to disk exports them
-  to Office. See [docs/08](docs/08-disk-to-drive.md).
+- **Google-native survive as natives only inside Drive.** Server-side transfers
+  (intra-account `move`, cross-account `copy --server-side-across-configs`) keep
+  them native; anything that goes to disk — including the local-mirror relay used
+  for non-owned files in `evacuate.py` pass 2 — is restored as an Office export.
+  See [docs/08](docs/08-disk-to-drive.md).
 - **The 30-day trash is a net, not a backup.** Your verified local mirror is the
   backup.
 - **One rclone per account** — two at once = HTTP 429.

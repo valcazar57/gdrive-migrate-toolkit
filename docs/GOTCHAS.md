@@ -10,7 +10,7 @@ Every one of these was learned the hard way. Read before you touch a real accoun
 - **Google-native files are cloud-only pointers** (`.gdoc/.gsheet/.gslides`, ~197
   bytes, rclone `Size == -1`). The content lives only in the cloud.
   - **Preserved** by `rclone move` (intra-account) and
-    `rclone copy --drive-server-side-across-configs` (cross-account, owned only).
+    `rclone copy --server-side-across-configs` (cross-account, owned only).
   - **Exported** to Office by `rclone copy --drive-export-formats docx,xlsx,pptx`
     (any download to disk).
   - **Cannot** be copied by robocopy (exit 8) or `cp` (0-byte garbage). They survive
