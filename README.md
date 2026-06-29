@@ -71,13 +71,13 @@ python scripts/mirror_account.py --remote accountA: --dest D:/MIRROR
 python scripts/mirror_account.py --remote accountA: --dest D:/MIRROR --apply
 
 # 2. Reorganize in place with a CSV of moves (dry-run by default)
-cp templates/move_table.example.csv move_table.csv   # edit it: group;source;dest
+cp templates/move_table.example.csv move_table.csv   # edit it: group;source;dest;mirror
 python scripts/reorg_move.py --table move_table.csv --src-remote accountA: --dst-remote accountA:
 python scripts/reorg_move.py --table move_table.csv --src-remote accountA: --dst-remote accountA: --apply
 
 # 3. Or evacuate an account across others + disk (2 passes)
-python scripts/evacuate.py --table move_table.csv --apply          # owned, server-side
-python scripts/evacuate.py --table move_table.csv --pass 2 --apply # non-owned, relay from mirror
+python scripts/evacuate.py --table move_table.csv --src-remote accountA: --dst-remote accountB: --pass 1 --apply  # owned, server-side
+python scripts/evacuate.py --table move_table.csv --src-remote accountA: --dst-remote accountB: --pass 2 --apply  # non-owned, relay from mirror
 
 # 4. Verify, then delete the source to trash (reversible 30 days)
 python scripts/verify_counts.py --table move_table.csv --src-remote accountA: --dst-remote accountB:
@@ -85,7 +85,8 @@ rclone purge "accountA:SomeBlock" --drive-use-trash=true
 ```
 
 Requirements: **Python 3.8+** (standard library only) and **rclone**. No `pip
-install` needed.
+install` needed. Tested on **Windows + Google Drive for Desktop**; the method
+applies to macOS/Linux too — PRs for those environments are welcome.
 
 ## Critical warnings
 
