@@ -63,9 +63,8 @@ def run_rclone(rclone: str, args, *, timeout=None, capture_to_file=False):
     cmd = [rclone] + [str(a) for a in args]
     if capture_to_file:
         fd, tmp = tempfile.mkstemp(suffix=".rclone.out")
-        os.close(fd)
         try:
-            with open(tmp, "w", encoding="utf-8") as fh:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
                 p = subprocess.run(
                     cmd, stdout=fh, stderr=subprocess.PIPE,
                     timeout=timeout, text=True, encoding="utf-8",

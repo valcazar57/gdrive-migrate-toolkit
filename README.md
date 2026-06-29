@@ -4,7 +4,9 @@
 accounts at scale with [rclone](https://rclone.org/) — without losing data, and
 reversibly.**
 
-> 🇪🇸 ¿Prefieres español? Lee [`README.es.md`](README.es.md).
+![CI](https://github.com/valcazar57/gdrive-migrate-toolkit/actions/workflows/ci.yml/badge.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)
 
 There is no official tool to **reorganize / merge / evacuate / deduplicate a
 company Google Drive at scale**: multiple accounts, Drive-for-Desktop virtual
@@ -14,6 +16,10 @@ it, distilled from doing it for real on a multi-account Workspace with tens of G
 
 It is built on one safety contract: **copy → verify → delete-to-trash**, never a
 bare move out of the cloud. Every script is **dry-run by default**.
+
+Run the scripts yourself, or let **any** AI coding agent drive them — the operating
+rules live in [AGENTS.md](AGENTS.md), a tool-agnostic convention (not tied to any
+single assistant).
 
 ## The problem this solves
 
@@ -84,14 +90,16 @@ install` needed.
 ## Repository layout
 
 ```
-README.md / README.es.md   The story + quickstart (EN / ES)
-PLAYBOOK.md                 The full method (anonymized)
-AGENTS.md                   Operating rules for an AI/automation agent
-LICENSE                     MIT
-SECURITY.md                 Never commit rclone.conf; how to report
-docs/                       00-principles ... 10-space-and-distribution + GOTCHAS
-scripts/                    reorg_move, mirror_account, evacuate, verify_counts, detect_natives, common
-templates/                  move_table.example.csv, changes.schema.csv
+README.md                  The story + quickstart
+PLAYBOOK.md                The full method (anonymized)
+AGENTS.md                  Operating rules for any AI/automation agent
+LICENSE                    MIT
+SECURITY.md                Never commit rclone.conf; how to report
+docs/                      00-principles ... 10-space-and-distribution + GOTCHAS
+scripts/                   reorg_move, mirror_account, evacuate, verify_counts, detect_natives, common
+templates/                 move_table.example.csv, changes.schema.csv
+tests/                     offline smoke test (fake rclone, no network)
+.github/                   CI workflow + PR template
 ```
 
 ## Safety & privacy
@@ -100,6 +108,18 @@ This repo contains **method + generic scripts + empty templates only**. No
 credentials, no real data, no account/brand/client names. Never commit your
 `rclone.conf`, logs or change CSVs — see [SECURITY.md](SECURITY.md) and
 [.gitignore](.gitignore).
+
+## Author
+
+Built by **Victor Alcazar** — <https://victoralcazar.com>.
+
+## Contributing & feedback
+
+This is my **first open-source project**, born from solving a real multi-account
+Google Drive cleanup. If something is unclear, broken, or could be done better,
+your feedback is genuinely welcome — open an issue or a PR. New traps for
+[`docs/GOTCHAS.md`](docs/GOTCHAS.md) are especially appreciated. See
+[CONTRIBUTING.md](CONTRIBUTING.md) and, before anything else, [SECURITY.md](SECURITY.md).
 
 ## License
 

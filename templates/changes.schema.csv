@@ -1,8 +1,10 @@
-date;group;source;dest;n_src;n_dst;status;mode
-# Schema (reference header) of the changes CSV the scripts generate.
-# Each real operation appends a row: this is the reversible record (source->dest).
-# This file is just the EMPTY schema; the real log is created by the script
-# (changes_reorg_YYYYMMDD.csv / changes_evacuation_YYYYMMDD.csv) and is NOT committed.
+# Reference for the change-log CSVs the scripts generate automatically.
+# These logs are the reversible record of every operation and are NOT committed
+# (see .gitignore). To undo an operation, move dest -> source for rows with
+# status=ok. See docs/07-verify-and-delete.md.
 #
-# To undo: read the CSV and move dest->source (inverse rclone move), only for
-# rows with status='ok'. See docs/07-verify-and-delete.md.
+# reorg_move.py  ->  changes_reorg_YYYYMMDD.csv
+date;group;source;dest;n_src_before;n_dst_added;n_src_after;status;mode
+#
+# evacuate.py    ->  changes_evacuation_YYYYMMDD.csv
+date;group;pass;source;dest;n_source;n_dest;status;mode

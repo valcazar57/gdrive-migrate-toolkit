@@ -1,5 +1,8 @@
 # Contributing
 
+> Maintainer's note: this is my first open-source project. Reviews, fixes and
+> suggestions are very welcome — be kind, be specific, and never include real data.
+
 Thanks for considering a contribution. This project is small and dependency-free
 on purpose — keep it that way.
 

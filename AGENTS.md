@@ -2,7 +2,9 @@
 
 Generic operating contract for any agent (or person) driving this toolkit against
 real Google Drive accounts. It contains **no business specifics** — only the
-discipline that keeps the operation safe and reversible.
+discipline that keeps the operation safe and reversible. It follows the cross-tool
+`AGENTS.md` convention, so any agent or assistant that reads this file can operate
+the toolkit.
 
 ## Default posture
 
