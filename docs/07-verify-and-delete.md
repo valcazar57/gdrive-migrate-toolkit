@@ -44,6 +44,22 @@ After a cross-account copy, a small destination shortfall is almost always:
 Confirm with `rclone check --one-way SRC DST` (md5). If unique files are genuinely
 missing, merge them first with `rclone copy SRC DST --ignore-existing`.
 
+## Strong verification with `--check`
+
+`verify_counts.py` compares **counts and bytes**; equal counts do **not** prove the
+files are identical. Add `--check` to also run `rclone check --one-way SRC DST`
+(paths + sizes/hashes where available) per pair:
+
+```bash
+python scripts/verify_counts.py --table move_table.csv \
+  --src-remote accountA: --dst-remote accountB: --check
+```
+
+Exit codes: `0` = all good; `1` = something to REVIEW (count mismatch, access error,
+or a failed `rclone check`). Google-native files have no byte-stream/hash, so for
+those compare an **inventory** (path, name, MIME type, native type) via
+`detect_natives.py`, not bytes.
+
 ## Delete to trash (reversible)
 
 ```bash

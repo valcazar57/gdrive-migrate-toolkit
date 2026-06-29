@@ -80,7 +80,7 @@ python scripts/evacuate.py --table move_table.csv --src-remote accountA: --dst-r
 python scripts/evacuate.py --table move_table.csv --src-remote accountA: --dst-remote accountB: --pass 2 --apply  # non-owned, relay from mirror
 
 # 4. Verify, then delete the source to trash (reversible 30 days)
-python scripts/verify_counts.py --table move_table.csv --src-remote accountA: --dst-remote accountB:
+python scripts/verify_counts.py --table move_table.csv --src-remote accountA: --dst-remote accountB: --check
 rclone purge "accountA:SomeBlock" --drive-use-trash=true
 ```
 
@@ -101,6 +101,16 @@ applies to macOS/Linux too — PRs for those environments are welcome.
   backup.
 - **One rclone per account** — two at once = HTTP 429.
 - **Don't move live editing projects** (`.prproj`/`.drp` link media by path).
+
+## Scope & status
+
+This is a **supervised playbook + reference scripts**, not a one-click unattended
+migrator. Run it with a human in the loop: dry-run, mirror, apply in small batches,
+then verify with `verify_counts.py --check` before deleting anything. The scripts
+return non-zero exit codes on failures or REVIEW states so you can gate automation,
+but **a green run is not a substitute for your own verification** of a sample.
+Tested via offline unit tests (fake rclone) on Ubuntu + Windows; real two-account
+integration is a manual pre-release step (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## Repository layout
 

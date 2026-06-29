@@ -4,6 +4,32 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-06-29
+
+Safer-by-default for automation (second external review).
+
+### Changed
+- **Cross-account `move` is now BLOCKED by default** in `reorg_move.py`; it requires
+  the explicit `--allow-cross-account-move`. Use `evacuate.py` (copy -> verify ->
+  delete) for cross-account transfers.
+- Scripts return meaningful **exit codes**: `reorg_move.py` / `evacuate.py` exit `1`
+  on hard failures, `2` when a row needs REVIEW, `0` only when clean — so a `0` exit
+  can gate automation. A REVIEW (e.g. added != source) is no longer silent success.
+
+### Added
+- `verify_counts.py --check` runs `rclone check --one-way` (paths + sizes/hashes)
+  for strong verification, and reports access errors as `source_error`/`dest_error`.
+- `evacuate.py` surfaces destinations it could not measure as
+  `REVIEW(dest_unmeasured)` instead of `ok`, and tracks a global failure/review count.
+
+### Fixed
+- Timeouts during measurement (`rclone size`/`lsf`) and during `evacuate` copies are
+  now converted to clean errors instead of an uncaught exception.
+
+### Docs
+- Documented the `--ignore-existing` trade-off in pass 2 (skips by name, not
+  content), a manual pre-release verification checklist, and the supervised scope.
+
 ## [0.1.1] - 2026-06-29
 
 Robustness and accuracy pass (from external review feedback).
@@ -48,5 +74,6 @@ First public release.
 - Project docs and community files: `README.md`, `AGENTS.md`, `CONTRIBUTING.md`,
   `SECURITY.md`, `CODE_OF_CONDUCT.md`, `LICENSE` (MIT), PR and issue templates.
 
+[0.2.0]: https://github.com/valcazar57/gdrive-migrate-toolkit/releases/tag/v0.2.0
 [0.1.1]: https://github.com/valcazar57/gdrive-migrate-toolkit/releases/tag/v0.1.1
 [0.1.0]: https://github.com/valcazar57/gdrive-migrate-toolkit/releases/tag/v0.1.0

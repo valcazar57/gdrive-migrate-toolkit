@@ -55,6 +55,7 @@ class Smoke(unittest.TestCase):
         cmd = [sys.executable, str(SCRIPTS / name), *args]
         return subprocess.run(cmd, cwd=self.d, env=self.env, capture_output=True, text=True)
 
+    # ---- reorg_move ----
     def test_reorg_dryrun_then_apply(self):
         r = self.run_script("reorg_move.py", "--table", str(self.table),
                             "--src-remote", "accountA:", "--dst-remote", "accountA:")
@@ -63,16 +64,16 @@ class Smoke(unittest.TestCase):
         r = self.run_script("reorg_move.py", "--table", str(self.table),
                             "--src-remote", "accountA:", "--dst-remote", "accountA:", "--apply")
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("source_left=0", r.stdout)            # verification ran
+        self.assertIn("source_left=0", r.stdout)
         log = self.log.read_text(encoding="utf-8")
-        self.assertRegex(log, r"(?m)^move ")                # reorg uses move
-        self.assertNotIn("--server-side-across-configs", log)  # intra-account: no cross-config
+        self.assertRegex(log, r"(?m)^move ")
+        self.assertNotIn("--server-side-across-configs", log)   # intra-account: no cross-config
 
     def test_reorg_skips_missing_source(self):
         table = self.write_table("Gone;ERRNOTFOUND/x;Dest;\n", "missing.csv")
         r = self.run_script("reorg_move.py", "--table", str(table),
                             "--src-remote", "accountA:", "--dst-remote", "accountA:", "--apply")
-        self.assertEqual(r.returncode, 0, r.stderr)          # missing source is a clean skip
+        self.assertEqual(r.returncode, 0, r.stderr)            # missing source = clean skip
         self.assertIn("SKIP", r.stdout)
         self.assertNotIn("ERROR", r.stdout)
 
@@ -80,23 +81,49 @@ class Smoke(unittest.TestCase):
         table = self.write_table("Bad;ERRFAIL/x;Dest;\n", "bad.csv")
         r = self.run_script("reorg_move.py", "--table", str(table),
                             "--src-remote", "accountA:", "--dst-remote", "accountA:", "--apply")
-        self.assertEqual(r.returncode, 1)                    # access error must NOT be a silent skip
+        self.assertEqual(r.returncode, 1)                      # access error must fail, not skip
         self.assertIn("ERROR", r.stdout)
 
+    def test_reorg_review_exits_nonzero(self):
+        # dest fills to 5 objects but source reported 0 -> added != src -> REVIEW
+        table = self.write_table("Mism;00 - INBOX/Sales;FILLAFTER;\n", "mism.csv")
+        r = self.run_script("reorg_move.py", "--table", str(table),
+                            "--src-remote", "accountA:", "--dst-remote", "accountA:", "--apply")
+        self.assertEqual(r.returncode, 2)                      # REVIEW -> exit 2 (not silent ok)
+        self.assertIn("REVIEW(added", r.stdout)
+
+    def test_reorg_blocks_cross_account_by_default(self):
+        table = self.write_table("X;Block;Inbox/Block;\n", "cross.csv")
+        r = self.run_script("reorg_move.py", "--table", str(table),
+                            "--src-remote", "accountA:", "--dst-remote", "accountB:", "--apply")
+        self.assertEqual(r.returncode, 1)                      # cross-account move blocked
+        self.assertIn("BLOCKED", r.stdout)
+
+    def test_reorg_allows_cross_account_with_flag(self):
+        table = self.write_table("X;Block;Inbox/Block;\n", "cross2.csv")
+        r = self.run_script("reorg_move.py", "--table", str(table),
+                            "--src-remote", "accountA:", "--dst-remote", "accountB:",
+                            "--allow-cross-account-move", "--apply")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("--server-side-across-configs", self.log.read_text(encoding="utf-8"))
+
+    # ---- evacuate ----
     def test_evacuate_two_passes(self):
         r = self.run_script("evacuate.py", "--table", str(self.table),
                             "--src-remote", "accountA:", "--dst-remote", "accountB:", "--apply")
         self.assertEqual(r.returncode, 0, r.stderr)
         log = self.log.read_text(encoding="utf-8")
-        self.assertIn("--server-side-across-configs", log)     # pass 1 (modern global flag)
-        self.assertNotIn("--drive-server-side-across-configs", log)  # not the deprecated one
-        self.assertIn("--ignore-existing", log)                # pass 2
+        self.assertIn("--server-side-across-configs", log)             # pass 1 (modern flag)
+        self.assertNotIn("--drive-server-side-across-configs", log)    # not the deprecated one
+        self.assertIn("--ignore-existing", log)                       # pass 2
 
+    # ---- detect_natives ----
     def test_detect_natives(self):
         r = self.run_script("detect_natives.py", "--path", "accountA:Block")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("1 Google-native", r.stdout)
 
+    # ---- verify_counts ----
     def test_verify_counts_ok(self):
         r = self.run_script("verify_counts.py", "--table", str(self.table),
                             "--src-remote", "accountA:", "--dst-remote", "accountB:")
@@ -107,15 +134,31 @@ class Smoke(unittest.TestCase):
         table = self.write_table("Bad;ERRFAIL/x;ERRFAIL/y;\n", "verr.csv")
         r = self.run_script("verify_counts.py", "--table", str(table),
                             "--src-remote", "accountA:", "--dst-remote", "accountB:")
-        self.assertEqual(r.returncode, 1)                    # access error -> non-zero
+        self.assertEqual(r.returncode, 1)
         self.assertIn("error", r.stdout)
 
+    def test_verify_check_ok(self):
+        r = self.run_script("verify_counts.py", "--table", str(self.table),
+                            "--src-remote", "accountA:", "--dst-remote", "accountB:", "--check")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("check_ok", r.stdout)
+        self.assertRegex(self.log.read_text(encoding="utf-8"), r"(?m)^check --one-way ")
+
+    def test_verify_check_failure(self):
+        table = self.write_table("Bad;CHECKFAIL/a;CHECKFAIL/b;\n", "vchk.csv")
+        r = self.run_script("verify_counts.py", "--table", str(table),
+                            "--src-remote", "accountA:", "--dst-remote", "accountB:", "--check")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("check_failed", r.stdout)
+
+    # ---- mirror ----
     def test_mirror_exports_natives_flag(self):
         r = self.run_script("mirror_account.py", "--remote", "accountA:",
                             "--dest", str(self.d / "mir"), "--apply")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("--drive-export-formats", self.log.read_text(encoding="utf-8"))
 
+    # ---- schema stays in sync with the scripts ----
     def test_schema_matches_headers(self):
         schema = (ROOT / "templates" / "changes.schema.csv").read_text(encoding="utf-8")
         self.assertIn(";".join(reorg_move.HEADER), schema)

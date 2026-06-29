@@ -16,6 +16,7 @@ also run `rclone check --one-way SRC DST`.
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 
 import common as c
@@ -31,13 +32,16 @@ def parse_args():
     ap.add_argument("--out", default=None, help="Output CSV (optional)")
     ap.add_argument("--timeout", type=int, default=1800, help="Timeout per measurement (default 1800)")
     ap.add_argument("--rclone", default=None, help="Path to the rclone binary")
+    ap.add_argument("--check", action="store_true",
+                    help="Also run `rclone check --one-way SRC DST` (strong: paths + "
+                         "sizes/hashes where available). Natives have no hash; see docs/07.")
     return ap.parse_args()
 
 
 HEADER = ["group", "source", "dest", "n_src", "n_dst", "delta_n", "bytes_src", "bytes_dst", "status"]
 
 
-def check_pair(rclone, group, src, dst, timeout):
+def check_pair(rclone, group, src, dst, timeout, check=False):
     def measure(path):
         try:
             return c.rclone_size(rclone, path, timeout=timeout)  # dict, or None if not found
@@ -65,6 +69,12 @@ def check_pair(rclone, group, src, dst, timeout):
             status = f"dest_larger(+{delta})"
         else:
             status = f"REVIEW(missing {-delta}: shortcuts/dupe-names?)"
+        if check:
+            try:
+                rc, _, _ = c.run_rclone(rclone, ["check", "--one-way", src, dst], timeout=timeout)
+            except subprocess.TimeoutExpired:
+                rc = 124
+            status += "+check_ok" if rc == 0 else "+REVIEW(check_failed)"
     print(f"  {group}: src={ns} dst={nd} delta={delta} -> {status}")
     return [group, src, dst, ns, nd, delta, bs, bd, status]
 
@@ -85,7 +95,7 @@ def main():
         sys.exit("Provide --table, or both --src and --dst.")
 
     print(f"Verifying {len(pairs)} pair(s)...")
-    rows = [check_pair(rclone, g, s, d, a.timeout) for g, s, d in pairs]
+    rows = [check_pair(rclone, g, s, d, a.timeout, a.check) for g, s, d in pairs]
 
     if a.out:
         for row in rows:

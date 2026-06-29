@@ -26,6 +26,7 @@ DRY-RUN BY DEFAULT.
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 
 import common as c
@@ -52,8 +53,22 @@ def do_copy(rclone, src, dst, extra, timeout, apply):
     args = ["copy", src, dst] + c.STD_FLAGS + c.exclude_args(c.DEFAULT_EXCLUDES) + extra
     if not apply:
         args.append("--dry-run")
-    rc, _, err = c.run_rclone(rclone, args, timeout=timeout, capture_to_file=True)
+    try:
+        rc, _, err = c.run_rclone(rclone, args, timeout=timeout, capture_to_file=True)
+    except subprocess.TimeoutExpired:
+        return 124, f"copy timed out after {timeout}s"
     return rc, err
+
+
+def measure_dest(rclone, dst, timeout, apply):
+    """After a copy, measure the destination. Returns (count_or_'ERR', note)."""
+    if not apply:
+        return "", ""
+    try:
+        nd = c.rclone_size(rclone, dst, timeout=timeout)
+    except c.RcloneError as e:
+        return "ERR", f"dest unmeasured: {e}"
+    return (nd["count"] if nd else 0), ""
 
 
 def main():
@@ -65,6 +80,7 @@ def main():
     if not rows:
         sys.exit("Empty table (columns group;source;dest;mirror?).")
 
+    failed = review = 0
     for i, r in enumerate(rows, 1):
         group = r.get("group", f"row{i}")
         src = c.qualify(r.get("source", ""), a.src_remote)
@@ -78,9 +94,19 @@ def main():
             n0c = n0["count"] if n0 else 0
             print(f"  P1 server-side: {src} -> {dst}  (source {n0c} obj)")
             rc, err = do_copy(rclone, src, dst, ["--server-side-across-configs"], a.timeout, a.apply)
-            nd = c.rclone_size_or_none(rclone, dst, timeout=a.timeout) if a.apply else None
-            ndc = nd["count"] if nd else ""
-            status = "dry-run" if not a.apply else ("ok" if rc == 0 else f"REVIEW(rc={rc},404=non-owned)")
+            ndc, note = measure_dest(rclone, dst, a.timeout, a.apply)
+            if not a.apply:
+                status = "dry-run"
+            elif rc != 0:
+                status = f"REVIEW(rc={rc},404=non-owned?)"
+                review += 1
+            elif ndc == "ERR":
+                status = "REVIEW(dest_unmeasured)"
+                review += 1
+            else:
+                status = "ok"
+            if note:
+                print("     ", note)
             if err.strip() and a.apply:
                 print("     stderr:", err.strip().splitlines()[-1])
             c.append_csv(log, HEADER, [c.now_iso(), group, "1", src, dst, n0c, ndc, status,
@@ -93,19 +119,30 @@ def main():
             else:
                 print(f"  P2 relay: {mirror} -> {dst}  (--ignore-existing)")
                 rc, err = do_copy(rclone, mirror, dst, ["--ignore-existing"], a.timeout, a.apply)
-                nd = c.rclone_size_or_none(rclone, dst, timeout=a.timeout) if a.apply else None
-                ndc = nd["count"] if nd else ""
-                status = "dry-run" if not a.apply else ("ok" if rc == 0 else f"ERROR(rc={rc})")
+                ndc, note = measure_dest(rclone, dst, a.timeout, a.apply)
+                if not a.apply:
+                    status = "dry-run"
+                elif rc != 0:
+                    status = f"ERROR(rc={rc})"
+                    failed += 1
+                elif ndc == "ERR":
+                    status = "REVIEW(dest_unmeasured)"
+                    review += 1
+                else:
+                    status = "ok"
+                if note:
+                    print("     ", note)
                 if err.strip() and a.apply:
                     print("     stderr:", err.strip().splitlines()[-1])
                 c.append_csv(log, HEADER, [c.now_iso(), group, "2", mirror, dst, "", ndc, status,
                                            "apply" if a.apply else "dry-run"])
 
-    print(f"\nLog -> {log}")
-    print("Remember: verify with verify_counts.py before deleting the source, and delete")
-    print("to trash with `rclone purge account:Block --drive-use-trash=true` (30-day net).")
+    print(f"\nLog -> {log}  (review={review} failed={failed})")
+    print("Remember: verify with `verify_counts.py --check` before deleting the source, and")
+    print("delete to trash with `rclone purge account:Block --drive-use-trash=true` (30-day net).")
     if not a.apply:
         print("This was DRY-RUN.")
+    sys.exit(1 if failed else (2 if review else 0))
 
 
 if __name__ == "__main__":

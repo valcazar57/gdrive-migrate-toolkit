@@ -3,13 +3,17 @@
 toolkit uses, records each invocation, and can inject failures. Never touches
 any network.
 
-Error injection (so we can test error handling without real Drive):
-  - a path containing "ERRNOTFOUND" -> exit 3 + "directory not found" (path missing)
-  - a path containing "ERRFAIL"     -> exit 1 + stderr (a real failure)
+Markers (so we can test behavior without real Drive):
+  - path contains "ERRNOTFOUND" -> exit 3 + "directory not found" (path missing)
+  - path contains "ERRFAIL"     -> exit 1 + stderr (a real failure)
+  - path contains "FILLAFTER"   -> `size` returns 0 on the 1st measurement and 5
+                                   afterwards (simulates an empty dest that fills)
+  - `check` with "CHECKFAIL"    -> exit 1 (differences found)
 """
 import json
 import os
 import sys
+from pathlib import Path
 
 argv = sys.argv[1:]
 joined = " ".join(argv)
@@ -20,7 +24,7 @@ if log:
 
 cmd = argv[0] if argv else ""
 
-if cmd in ("size", "lsf", "lsjson"):
+if cmd in ("size", "lsf", "lsjson", "check"):
     if "ERRFAIL" in joined:
         sys.stderr.write("simulated rclone failure\n")
         sys.exit(1)
@@ -29,7 +33,14 @@ if cmd in ("size", "lsf", "lsjson"):
         sys.exit(3)
 
 if cmd == "size":            # size --json PATH
-    print(json.dumps({"count": 3, "bytes": 3072}))
+    count = 0
+    if "FILLAFTER" in joined:
+        seen = 0
+        if log and Path(log).exists():
+            seen = sum(1 for ln in Path(log).read_text(encoding="utf-8").splitlines()
+                       if ln.startswith("size ") and "FILLAFTER" in ln)
+        count = 0 if seen <= 1 else 5   # empty before the move, filled after
+    print(json.dumps({"count": count, "bytes": count * 1024}))
 elif cmd == "lsf":           # files-only listing -> 0 files (moved / empty)
     pass
 elif cmd == "lsjson":        # one native (Size -1) + one binary
@@ -40,5 +51,9 @@ elif cmd == "lsjson":        # one native (Size -1) + one binary
     ]))
 elif cmd == "about":
     print("Total: 30 GiB\nUsed: 18 GiB\nFree: 12 GiB")
-# move/copy/mkdir/purge/delete/check/config/listremotes -> no output, rc 0
+elif cmd == "check":
+    if "CHECKFAIL" in joined:
+        sys.stderr.write("differences found\n")
+        sys.exit(1)
+# move/copy/mkdir/purge/delete/config/listremotes -> no output, rc 0
 sys.exit(0)

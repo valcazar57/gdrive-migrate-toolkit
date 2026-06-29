@@ -11,8 +11,10 @@ metadata. It only changes the file's "parent":
 - **Instant** — no download, no re-upload.
 - **Preserves Google-native** (`Size=-1`; the Doc/Sheet stays native and editable,
   it is NOT exported). This is the opposite of moving *between* accounts.
-- Do **not** use `--server-side-across-configs` here (that's for
-  cross-account; intra-account doesn't need it).
+- Cross-account is **blocked by default** in `reorg_move.py` (a cross-account
+  `move` copies-then-deletes per file). Use [`evacuate.py`](05-evacuation-cross-account.md);
+  only for OWNED files, `--allow-cross-account-move` opts in (it adds
+  `--server-side-across-configs`).
 
 ## Recipe
 

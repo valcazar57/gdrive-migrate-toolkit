@@ -36,6 +36,24 @@ python scripts/evacuate.py --table move_table.csv --pass 1 --apply
 python scripts/evacuate.py --table move_table.csv --pass 2 --apply
 ```
 
+## Caveat: `--ignore-existing` (pass 2) and how to be sure
+
+Pass 2 uses `--ignore-existing` so it won't overwrite what pass 1 already placed.
+The trade-off: rclone skips any destination file **that already exists by name,
+regardless of content** — it can't repair a partial or older copy. So treat pass 2
+as "upload what's missing", not "reconcile". To be sure, after both passes run the
+strong check (paths + sizes/hashes) before deleting anything:
+
+```bash
+python scripts/verify_counts.py --table move_table.csv \
+  --src-remote accountA: --dst-remote accountB: --check
+```
+
+`evacuate.py` exits `0` (clean), `2` (a block needs REVIEW — e.g. a destination it
+couldn't measure, or a non-owned 404), or `1` (a pass-2 copy failed). A non-zero
+exit means **do not delete the source yet**. A future version may relay only an
+explicit manifest of pass-1 failures instead of a blanket `--ignore-existing`.
+
 ## GOLDEN RULE: one rclone per source account
 
 **Never run two rclone processes against the same account at once** → HTTP 429,

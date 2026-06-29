@@ -32,6 +32,15 @@ on purpose — keep it that way.
 - Keep the method aligned with [PLAYBOOK.md](PLAYBOOK.md); if you change the method,
   update the PLAYBOOK and the affected `docs/`.
 
+## Manual pre-release verification (maintainers)
+
+The automated tests are **offline** (a fake rclone): they cover command
+construction, logging, error handling and exit codes — not real Drive behavior.
+Before tagging a release, run a manual smoke against **two throwaway test accounts**
+(never real data) covering: a real Google Doc/Sheet (native preserved server-side),
+a shortcut, duplicate names, a non-owned file (404 on pass 1, recovered via pass 2),
+and a `verify_counts.py --check` pass.
+
 ## Code of Conduct
 
 By participating, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).

@@ -100,7 +100,10 @@ def rclone_size(rclone: str, path: str, *, excludes=DEFAULT_EXCLUDES, timeout=18
     'count' includes Google-native files (they count as an object at 0 bytes).
     """
     args = ["size", "--json", path] + exclude_args(excludes)
-    rc, out, err = run_rclone(rclone, args, timeout=timeout, capture_to_file=True)
+    try:
+        rc, out, err = run_rclone(rclone, args, timeout=timeout, capture_to_file=True)
+    except subprocess.TimeoutExpired:
+        raise RcloneError(f"rclone size timed out after {timeout}s for {path}")
     if rc != 0:
         if _not_found(rc, err):
             return None
@@ -119,7 +122,10 @@ def rclone_count_files(rclone: str, path: str, *, excludes=DEFAULT_EXCLUDES, tim
     a real failure. Used for the 'everything moved' check (source = 0 after move).
     """
     args = ["lsf", "-R", "--files-only", path] + exclude_args(excludes)
-    rc, out, err = run_rclone(rclone, args, timeout=timeout, capture_to_file=True)
+    try:
+        rc, out, err = run_rclone(rclone, args, timeout=timeout, capture_to_file=True)
+    except subprocess.TimeoutExpired:
+        raise RcloneError(f"rclone lsf timed out after {timeout}s for {path}")
     if rc != 0:
         if _not_found(rc, err):
             return None
@@ -133,6 +139,11 @@ def rclone_size_or_none(rclone, path, **kw):
         return rclone_size(rclone, path, **kw)
     except RcloneError:
         return None
+
+
+def remote_of(path: str) -> str:
+    """The 'remote' part of 'remote:path' (or '' if the cell has no remote)."""
+    return path.split(":", 1)[0] if ":" in path else ""
 
 
 def append_csv(path, header, row):

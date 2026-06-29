@@ -5,9 +5,10 @@ Primary case: INTRA-ACCOUNT REORG. Same remote on source and destination ->
 Drive does a server-side *reparent* of metadata: instant, no download/re-upload,
 and it PRESERVES Google-native files (they stay editable, they are NOT exported).
 
-Secondary case: move ONE folder to ANOTHER account preserving natives ->
-use --server-side-across-configs (only works for files OWNED by the source
-account; shared items 404 server-side, that's evacuate.py's job).
+Secondary case: move ONE folder to ANOTHER account. This is BLOCKED by default
+(cross-account `move` copies then deletes per file, against the copy -> verify ->
+delete contract). evacuate.py is the safe path; if you really need it for OWNED
+files only, pass --allow-cross-account-move (shared items 404 server-side anyway).
 
 The table (templates/move_table.example.csv) has columns:
     group;source;dest
@@ -34,8 +35,9 @@ def parse_args():
     ap.add_argument("--dst-remote", default=None, help="Default remote for 'dest' if the cell lacks one (e.g. accountA:)")
     ap.add_argument("--log", default=None, help="Changes CSV (default: changes_reorg_YYYYMMDD.csv)")
     ap.add_argument("--apply", action="store_true", help="Actually run (without it: dry-run)")
-    ap.add_argument("--server-side-across-configs", action="store_true",
-                    help="Cross-account preserving natives (owned files only)")
+    ap.add_argument("--allow-cross-account-move", action="store_true",
+                    help="Allow `move` between DIFFERENT accounts (unsafe: copies then "
+                         "deletes per file). Default blocks it; use evacuate.py instead.")
     ap.add_argument("--timeout", type=int, default=3600, help="Timeout per move in seconds (default 3600)")
     ap.add_argument("--rclone", default=None, help="Path to the rclone binary")
     return ap.parse_args()
@@ -49,19 +51,13 @@ def main():
     a = parse_args()
     rclone = c.find_rclone(a.rclone)
     c.banner(a.apply)
-    if a.server_side_across_configs:
-        print("WARNING: cross-account `move` copies then DELETES each source file as it\n"
-              "         goes, before the final verification. For cross-account transfers the\n"
-              "         safer copy -> verify -> delete path is evacuate.py. Use this only for\n"
-              "         OWNED files you deliberately want to relocate server-side.\n")
     log = a.log or f"changes_reorg_{c.today()}.csv"
 
     rows = c.read_table(a.table)
     if not rows:
         sys.exit("Table has no usable rows (columns group;source;dest?).")
 
-    extra = ["--server-side-across-configs"] if a.server_side_across_configs else []
-    ok = skipped = failed = 0
+    ok = skipped = failed = review = 0
 
     for i, r in enumerate(rows, 1):
         group = r.get("group", f"row{i}")
@@ -71,6 +67,19 @@ def main():
             print(f"[{i}/{len(rows)}] {group}: empty source/dest -> SKIP")
             skipped += 1
             continue
+        cross = c.remote_of(src) != c.remote_of(dst)
+        if cross and not a.allow_cross_account_move:
+            print(f"[{i}/{len(rows)}] {group}: cross-account move BLOCKED "
+                  f"({c.remote_of(src)}: -> {c.remote_of(dst)}:). Use evacuate.py "
+                  f"(copy -> verify -> delete), or pass --allow-cross-account-move.")
+            c.append_csv(log, HEADER, [c.now_iso(), group, src, dst, "", "", "",
+                                       "ERROR(cross_account_blocked)", "apply" if a.apply else "dry-run"])
+            failed += 1
+            continue
+        extra = ["--server-side-across-configs"] if cross else []
+        if cross:
+            print("            NOTE: cross-account `move` copies then DELETES each source "
+                  "file as it goes (owned files only).")
 
         try:
             n_src = c.rclone_size(rclone, src, timeout=a.timeout)
@@ -133,9 +142,9 @@ def main():
             status = f"REVIEW(source_left={n_left})"
             failed += 1
         elif added != n_src_count:
-            # Benign causes: name collisions merged, duplicate names, dedup at dest.
+            # Could be benign (collisions/dedup) or real loss -> never silent success.
             status = f"REVIEW(added={added}!=src={n_src_count})"
-            ok += 1
+            review += 1
         else:
             status = "ok"
             ok += 1
@@ -144,10 +153,10 @@ def main():
         print(f"            added={added}  dest_total={dst_after}  source_left={n_left}  -> {status}")
         c.append_csv(log, HEADER, [c.now_iso(), group, src, dst, n_src_count, added, n_left, status, "apply"])
 
-    print(f"\nSummary: ok={ok} skipped={skipped} failed={failed}. Log -> {log}")
+    print(f"\nSummary: ok={ok} skipped={skipped} review={review} failed={failed}. Log -> {log}")
     if not a.apply:
         print("This was DRY-RUN. Review the plan and re-run with --apply once approved.")
-    sys.exit(1 if failed else 0)
+    sys.exit(1 if failed else (2 if review else 0))
 
 
 if __name__ == "__main__":
