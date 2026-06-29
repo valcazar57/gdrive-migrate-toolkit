@@ -48,6 +48,17 @@ single assistant).
 The full method is in [**PLAYBOOK.md**](PLAYBOOK.md). Every hard-won trap is in
 [**docs/GOTCHAS.md**](docs/GOTCHAS.md).
 
+## Why not an existing tool?
+
+The engine here is **rclone** — the one piece that can copy/move *between accounts*
+while preserving Google-native files (`--drive-server-side-across-configs`) and
+reparent server-side *within* an account (`rclone move`). Almost no other Drive
+client does that. GAM helps only for ownership transfer **within a single Workspace
+domain**; everything else (single-account clients, FUSE mounts, public-link
+downloaders) can't do safe, native-preserving, cross-account reorganization. The
+value of this repo is the **method** on top of rclone. Full comparison in
+[docs/11-prior-art.md](docs/11-prior-art.md).
+
 ## Quickstart
 
 ```bash
@@ -95,7 +106,7 @@ PLAYBOOK.md                The full method (anonymized)
 AGENTS.md                  Operating rules for any AI/automation agent
 LICENSE                    MIT
 SECURITY.md                Never commit rclone.conf; how to report
-docs/                      00-principles ... 10-space-and-distribution + GOTCHAS
+docs/                      00-principles ... 11-prior-art + GOTCHAS
 scripts/                   reorg_move, mirror_account, evacuate, verify_counts, detect_natives, common
 templates/                 move_table.example.csv, changes.schema.csv
 tests/                     offline smoke test (fake rclone, no network)
