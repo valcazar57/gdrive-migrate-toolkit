@@ -1,6 +1,6 @@
 # gdrive-migrate-toolkit
 
-**Reorganize, deduplicate, evacuate and merge Google Drive / Google Workspace
+**Reorganize, deduplicate, migrate, evacuate and merge Google Drive / Google Workspace
 accounts at scale with [rclone](https://rclone.org/) — without losing data, and
 reversibly.**
 
