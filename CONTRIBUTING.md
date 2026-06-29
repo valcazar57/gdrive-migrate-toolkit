@@ -31,3 +31,7 @@ on purpose — keep it that way.
 - Code comments and docs in **English** (this is the international repo language).
 - Keep the method aligned with [PLAYBOOK.md](PLAYBOOK.md); if you change the method,
   update the PLAYBOOK and the affected `docs/`.
+
+## Code of Conduct
+
+By participating, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).
