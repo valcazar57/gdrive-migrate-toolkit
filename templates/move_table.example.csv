@@ -1,0 +1,20 @@
+group;source;dest;mirror
+# Input table for reorg_move.py and evacuate.py. Separator ';'.
+# Lines starting with '#' and blank lines are ignored.
+#
+# - group  : free label for the block (shown in the log).
+# - source : path in the source account. May include a remote (accountA:Path) or
+#            be left relative and pass --src-remote accountA: on the CLI.
+# - dest   : path in the destination account/folder (same with --dst-remote).
+# - mirror : ONLY for evacuate.py pass 2 (relay of non-owned files from disk).
+#            reorg_move.py ignores this column.
+#
+# Delete these example lines and put your own. Do NOT commit your real table.
+#
+# Example intra-account reorg (same remote on source and dest):
+# Sales;accountA:00 - INBOX/Sales;accountA:Sales and Marketing;
+# Templates;accountA:00 - INBOX/Templates;accountA:Production - Templates;
+#
+# Example cross-account evacuation (with local mirror for non-owned files):
+# AssetsBrand1;accountA:Brand1;accountB:Inbox/Brand1;D:/MIRROR/Brand1
+# HR;accountA:HR;accountC:Inbox/HR;D:/MIRROR/HR

@@ -1,0 +1,53 @@
+# === Credentials — NEVER commit ===
+rclone.conf
+*.conf
+.env
+.env.*
+*token*
+*secret*
+*credential*
+
+# === Real data, logs, listings (keep only templates) ===
+*.log
+*.tsv
+*.csv
+!templates/*.example.csv
+!templates/*.schema.csv
+changes_*.csv
+changes_evacuation_*.csv
+changes_reorg_*.csv
+natives*.csv
+verify*.csv
+inventory*.*
+*_real*
+
+# === Local mirror / data dirs ===
+mirror/
+MIRROR/
+data/
+_CONTROL/
+_ESPEJO*/
+99_REVIEW/
+
+# === Business docs that must not be published ===
+SESION_*.md
+SESSION_*.md
+PLAN_*.md
+DECISIONS_*.md
+DECISIONES_*.md
+CLAUDE.md
+KICKOFF*.md
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# === OS / editor ===
+desktop.ini
+Thumbs.db
+.DS_Store
+.idea/
+.vscode/

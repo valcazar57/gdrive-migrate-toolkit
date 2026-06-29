@@ -1,0 +1,8 @@
+date;group;source;dest;n_src;n_dst;status;mode
+# Schema (reference header) of the changes CSV the scripts generate.
+# Each real operation appends a row: this is the reversible record (source->dest).
+# This file is just the EMPTY schema; the real log is created by the script
+# (changes_reorg_YYYYMMDD.csv / changes_evacuation_YYYYMMDD.csv) and is NOT committed.
+#
+# To undo: read the CSV and move dest->source (inverse rclone move), only for
+# rows with status='ok'. See docs/07-verify-and-delete.md.
