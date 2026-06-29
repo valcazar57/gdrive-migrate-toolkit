@@ -143,12 +143,36 @@ class Smoke(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("check_ok", r.stdout)
         self.assertRegex(self.log.read_text(encoding="utf-8"), r"(?m)^check --one-way ")
+        self.assertTrue((self.d / "check_Sales.txt").exists())   # --combined report written
 
     def test_verify_check_failure(self):
         table = self.write_table("Bad;CHECKFAIL/a;CHECKFAIL/b;\n", "vchk.csv")
         r = self.run_script("verify_counts.py", "--table", str(table),
                             "--src-remote", "accountA:", "--dst-remote", "accountB:", "--check")
         self.assertEqual(r.returncode, 1)
+        self.assertIn("check_failed", r.stdout)
+
+    # ---- timeout handling (short --timeout vs a slow fake) ----
+    def test_reorg_size_timeout_exits_nonzero(self):
+        table = self.write_table("Slow;TIMEOUT/x;Dest;\n", "rto.csv")
+        r = self.run_script("reorg_move.py", "--table", str(table), "--timeout", "1",
+                            "--src-remote", "accountA:", "--dst-remote", "accountA:", "--apply")
+        self.assertEqual(r.returncode, 1)            # measurement timeout -> error, not skip
+        self.assertIn("ERROR", r.stdout)
+
+    def test_evacuate_copy_timeout_review(self):
+        table = self.write_table("Slow;TIMEOUT/x;Dest;\n", "eto.csv")
+        r = self.run_script("evacuate.py", "--table", str(table), "--timeout", "1",
+                            "--src-remote", "accountA:", "--dst-remote", "accountB:",
+                            "--pass", "1", "--apply")
+        self.assertEqual(r.returncode, 2)            # copy timeout -> REVIEW, not silent ok
+        self.assertIn("review=1", r.stdout)          # copy timeout -> REVIEW, not silent ok
+
+    def test_verify_check_timeout_fails(self):
+        table = self.write_table("Slow;CHKSLOW/a;CHKSLOW/b;\n", "vto.csv")
+        r = self.run_script("verify_counts.py", "--table", str(table), "--timeout", "1",
+                            "--src-remote", "accountA:", "--dst-remote", "accountB:", "--check")
+        self.assertEqual(r.returncode, 1)            # check timeout -> REVIEW
         self.assertIn("check_failed", r.stdout)
 
     # ---- mirror ----

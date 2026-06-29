@@ -102,7 +102,14 @@ def main():
         print(f"            {src}  ->  {dst}")
         n_dst_before = 0
         if a.apply:
-            before = c.rclone_size_or_none(rclone, dst, timeout=a.timeout)
+            try:
+                before = c.rclone_size(rclone, dst, timeout=a.timeout)
+            except c.RcloneError as e:
+                print(f"            cannot measure destination -> REVIEW (move skipped): {e}")
+                c.append_csv(log, HEADER, [c.now_iso(), group, src, dst, n_src_count, "", "",
+                                           "REVIEW(dest_premeasure_failed)", "apply"])
+                review += 1
+                continue
             n_dst_before = before["count"] if before else 0
 
         args = ["move", src, dst] + c.STD_FLAGS + c.exclude_args(c.DEFAULT_EXCLUDES) + extra

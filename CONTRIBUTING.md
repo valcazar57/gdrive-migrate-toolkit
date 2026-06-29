@@ -41,6 +41,10 @@ Before tagging a release, run a manual smoke against **two throwaway test accoun
 a shortcut, duplicate names, a non-owned file (404 on pass 1, recovered via pass 2),
 and a `verify_counts.py --check` pass.
 
+This can be automated as a maintainer-only `workflow_dispatch` GitHub Action using
+repository secrets (secrets are not exposed to fork PRs); it's kept manual by
+choice for now, not because it's impossible.
+
 ## Code of Conduct
 
 By participating, you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).

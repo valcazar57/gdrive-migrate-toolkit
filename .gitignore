@@ -18,6 +18,7 @@ changes_evacuation_*.csv
 changes_reorg_*.csv
 natives*.csv
 verify*.csv
+check_*.txt
 inventory*.*
 *_real*
 

@@ -70,11 +70,17 @@ def check_pair(rclone, group, src, dst, timeout, check=False):
         else:
             status = f"REVIEW(missing {-delta}: shortcuts/dupe-names?)"
         if check:
+            report = "check_" + "".join(ch if ch.isalnum() else "_" for ch in group) + ".txt"
+            cargs = (["check", "--one-way", src, dst, "--combined", report]
+                     + c.exclude_args(c.DEFAULT_EXCLUDES))
             try:
-                rc, _, _ = c.run_rclone(rclone, ["check", "--one-way", src, dst], timeout=timeout)
+                rc, _, _ = c.run_rclone(rclone, cargs, timeout=timeout)
             except subprocess.TimeoutExpired:
                 rc = 124
-            status += "+check_ok" if rc == 0 else "+REVIEW(check_failed)"
+            if rc == 0:
+                status += "+check_ok"
+            else:
+                status += f"+REVIEW(check_failed; see {report})"
     print(f"  {group}: src={ns} dst={nd} delta={delta} -> {status}")
     return [group, src, dst, ns, nd, delta, bs, bd, status]
 

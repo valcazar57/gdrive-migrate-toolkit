@@ -4,6 +4,30 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-06-29
+
+Measurement honesty and verification follow-up (third external review).
+
+### Changed
+- `reorg_move.py` measures the destination baseline strictly: an access error
+  pre-move is now `REVIEW(dest_premeasure_failed)` (move skipped), not a silent zero.
+- `evacuate.py` measures the source strictly: an unmeasurable source prints `?` and
+  a note instead of silently logging zero.
+- `evacuate.py` success status is now `copy_ok_unverified` — the copy returned 0 and
+  the destination was measurable, which is NOT a content-verified migration; run
+  `verify_counts.py --check` before deleting the source.
+
+### Added
+- `verify_counts.py --check` writes a per-group `rclone --combined` report
+  (`check_<group>.txt`) so a failure shows *which* paths differ, and applies the same
+  excludes (`desktop.ini`) as the counts.
+- Real timeout tests (size measurement, evacuate copy, `--check`) driven by a slow fake.
+
+### Docs
+- Clarified that a `0` exit is "operationally clean for the step run", not a verified
+  migration; noted the integration suite can be a maintainer-only `workflow_dispatch`;
+  softened reversibility wording to "auditable and reversible at the workflow level".
+
 ## [0.2.0] - 2026-06-29
 
 Safer-by-default for automation (second external review).
@@ -74,6 +98,7 @@ First public release.
 - Project docs and community files: `README.md`, `AGENTS.md`, `CONTRIBUTING.md`,
   `SECURITY.md`, `CODE_OF_CONDUCT.md`, `LICENSE` (MIT), PR and issue templates.
 
+[0.2.1]: https://github.com/valcazar57/gdrive-migrate-toolkit/releases/tag/v0.2.1
 [0.2.0]: https://github.com/valcazar57/gdrive-migrate-toolkit/releases/tag/v0.2.0
 [0.1.1]: https://github.com/valcazar57/gdrive-migrate-toolkit/releases/tag/v0.1.1
 [0.1.0]: https://github.com/valcazar57/gdrive-migrate-toolkit/releases/tag/v0.1.0

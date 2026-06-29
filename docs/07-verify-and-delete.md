@@ -60,6 +60,11 @@ or a failed `rclone check`). Google-native files have no byte-stream/hash, so fo
 those compare an **inventory** (path, name, MIME type, native type) via
 `detect_natives.py`, not bytes.
 
+On a failure, `--check` writes a per-group `rclone --combined` report
+(`check_<group>.txt`, gitignored) listing the differing/missing paths, so it's a
+diagnostic, not just a red light. The check uses the same excludes as the counts
+(e.g. `desktop.ini`) so an ignored file never trips a false `check_failed`.
+
 ## Delete to trash (reversible)
 
 ```bash

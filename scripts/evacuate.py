@@ -90,8 +90,12 @@ def main():
 
         # ---- Pass 1: server-side (owned, preserves natives) ----
         if a.phase in ("1", "both"):
-            n0 = c.rclone_size_or_none(rclone, src, timeout=a.timeout)
-            n0c = n0["count"] if n0 else 0
+            try:
+                n0 = c.rclone_size(rclone, src, timeout=a.timeout)
+                n0c = n0["count"] if n0 else 0
+            except c.RcloneError as e:
+                n0c = "?"
+                print("     source unmeasured:", e)
             print(f"  P1 server-side: {src} -> {dst}  (source {n0c} obj)")
             rc, err = do_copy(rclone, src, dst, ["--server-side-across-configs"], a.timeout, a.apply)
             ndc, note = measure_dest(rclone, dst, a.timeout, a.apply)
@@ -104,7 +108,7 @@ def main():
                 status = "REVIEW(dest_unmeasured)"
                 review += 1
             else:
-                status = "ok"
+                status = "copy_ok_unverified"
             if note:
                 print("     ", note)
             if err.strip() and a.apply:
@@ -129,7 +133,7 @@ def main():
                     status = "REVIEW(dest_unmeasured)"
                     review += 1
                 else:
-                    status = "ok"
+                    status = "copy_ok_unverified"
                 if note:
                     print("     ", note)
                 if err.strip() and a.apply:
